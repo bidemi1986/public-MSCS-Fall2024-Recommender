@@ -1,5 +1,9 @@
 ### dependency
-streamlit
+streamlit 
+python-dotenv
+requests
+pandas
+pickle5
 
 ### local packages -
 -e . 
