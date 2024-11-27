@@ -5,7 +5,7 @@ with open("README.md", "r", encoding="utf-8") as f:
     long_description = f.read()
 
 
-REPO_NAME = "MSCS-Fall2024-Recommender"
+REPO_NAME = "public-MSCS-Fall2024-Recommender"
 AUTHOR_USER_NAME="bidemi1986"#"RueDeFoix"
 SRC_REPO = "src"
 LIST_OF_REQUIREMENTS = ['streamlit']

@@ -1,35 +1,62 @@
-# app.py
 import streamlit as st
 import requests
 import pickle
 import os
+import boto3
 from pathlib import Path
 from dotenv import load_dotenv
-
-# Define URLs for the `.pkl` files
-MOVIE_LIST_URL = "https://firebasestorage.googleapis.com/v0/b/sample-firebase-ai-app-3e813.firebasestorage.app/o/articles%2Fmovie_list.pkl?alt=media&token=6542b5f2-f250-47cd-acf0-272da7c568ec"
-SIMILARITY_URL = "https://firebasestorage.googleapis.com/v0/b/sample-firebase-ai-app-3e813.firebasestorage.app/o/articles%2Fsimilarity.pkl?alt=media&token=5b832d2d-1f92-4ecf-a9b4-eadec60d94a8"
+from botocore.exceptions import ClientError
 
 # Load environment variables
 load_dotenv()
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
 ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
-# Check if API key is available
+AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_BUCKET_NAME = os.getenv("AWS_BUCKET_NAME")
+
+# Check if required credentials are available
 if not TMDB_API_KEY:
     st.error("TMDB API key not found. Please set up your API key in the .env file.")
     st.stop()
 
+if not all([AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_BUCKET_NAME]):
+    st.error("AWS credentials not found. Please set up your AWS credentials in the .env file.")
+    st.stop()
+
+# Initialize AWS S3 client
+s3_client = boto3.client(
+    's3',
+    aws_access_key_id=AWS_ACCESS_KEY,
+    aws_secret_access_key=AWS_SECRET_KEY
+)
+
 @st.cache_data
-def download_and_load_pickle(url):
+def download_and_load_pickle_from_s3(bucket, key):
     """
-    Downloads a `.pkl` file from a URL and loads it into memory.
+    Downloads a `.pkl` file from S3 and loads it into memory.
+    
+    Args:
+        bucket (str): S3 bucket name
+        key (str): Path to file in S3 bucket
+    Returns:
+        object: Loaded pickle object
     """
     try:
-        response = requests.get(url, stream=True)
-        response.raise_for_status()
-        return pickle.loads(response.content)
+        response = s3_client.get_object(Bucket=bucket, Key=key)
+        pickle_data = response['Body'].read()
+        return pickle.loads(pickle_data)
+    except ClientError as e:
+        error_code = e.response.get('Error', {}).get('Code')
+        if error_code == 'NoSuchKey':
+            st.error(f"File {key} not found in bucket {bucket}")
+        elif error_code == 'NoSuchBucket':
+            st.error(f"Bucket {bucket} does not exist")
+        else:
+            st.error(f"Error accessing S3: {str(e)}")
+        return None
     except Exception as e:
-        st.error(f"Failed to download or load file from {url}. Error: {str(e)}")
+        st.error(f"Failed to load file from S3: {str(e)}")
         return None
 
 def fetch_movie_details(movie_id):
@@ -46,7 +73,6 @@ def fetch_movie_details(movie_id):
         response.raise_for_status()
         data = response.json()
         
-        # Get poster path and construct full URL if available
         poster_path = data.get('poster_path')
         poster_url = None
         if poster_path:
@@ -107,9 +133,9 @@ st.markdown(
 # Header
 st.title("🎥 Movie Recommender System")
 
-# Load data using caching
-movies = download_and_load_pickle(MOVIE_LIST_URL)
-similarity = download_and_load_pickle(SIMILARITY_URL)
+# Load data from S3 using caching
+movies = download_and_load_pickle_from_s3(AWS_BUCKET_NAME, 'models/movie_list.pkl')
+similarity = download_and_load_pickle_from_s3(AWS_BUCKET_NAME, 'models/similarity.pkl')
 
 if movies is not None and similarity is not None:
     # Dropdown for movie selection
@@ -134,7 +160,6 @@ if movies is not None and similarity is not None:
                     with col:
                         movie = recommendations[idx]
                         with st.container():
-                            # Display poster if available, otherwise show placeholder
                             if movie["poster_url"]:
                                 st.image(movie["poster_url"], width=150, caption=movie["title"])
                             else:
