@@ -14,80 +14,85 @@ SIMILARITY_URL = "https://firebasestorage.googleapis.com/v0/b/sample-firebase-ai
 load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / '.env')
 IMDB_API_KEY = os.getenv("IMDB_API_KEY", "imdb-api-key")
 
-
 @st.cache_data
 def download_and_load_pickle(url):
     """
     Downloads a `.pkl` file from a URL and loads it into memory.
-
-    :param url: The URL of the `.pkl` file to download.
-    :return: The loaded pickle object.
     """
-    response = requests.get(url, stream=True)
-    if response.status_code == 200:
-        # Load the file into memory directly
+    try:
+        response = requests.get(url, stream=True)
+        response.raise_for_status()  # Raise an exception for bad status codes
         return pickle.loads(response.content)
-    else:
-        st.error(f"Failed to download file from {url}. Status code: {response.status_code}")
+    except Exception as e:
+        st.error(f"Failed to download or load file from {url}. Error: {str(e)}")
         return None
 
-def fetch_poster(movie_id):
-    url = "https://api.themoviedb.org/3/movie/{}?api_key=8265bd1679663a7ea12ac168da84d2e8&language=en-US".format(movie_id)
-    data = requests.get(url)
-    data = data.json()
-    poster_path = data['poster_path']
-    full_path = "https://image.tmdb.org/t/p/w500/" + poster_path
-    return full_path
-
 def fetch_movie_details(movie_id):
-    url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={IMDB_API_KEY}&language=en-US"
-    response = requests.get(url)
-    if response.status_code != 200:
-        return {"poster_path": None, "title": "Unknown", "rating": "N/A", "release_date": "N/A"}
-    data = response.json()
-    poster_path = data.get('poster_path')
-    title = data.get('title', "Unknown")
-    rating = data.get('vote_average', "N/A")
-    release_date = data.get('release_date', "N/A")
-    return {
-        "poster_url": f"https://image.tmdb.org/t/p/w500/{poster_path}" if poster_path else None,
-        "title": title,
-        "rating": rating,
-        "release_date": release_date,
-    }
-
+    """
+    Fetch movie details from TMDB API with better error handling.
+    """
+    try:
+        url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={IMDB_API_KEY}&language=en-US"
+        response = requests.get(url)
+        response.raise_for_status()
+        data = response.json()
+        
+        # Get poster path and construct full URL if available
+        poster_path = data.get('poster_path')
+        poster_url = None
+        if poster_path:
+            poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}"
+        
+        return {
+            "poster_url": poster_url,
+            "title": data.get('title', "Unknown"),
+            "rating": data.get('vote_average', "N/A"),
+            "release_date": data.get('release_date', "N/A"),
+            "overview": data.get('overview', "No overview available")
+        }
+    except Exception as e:
+        st.warning(f"Failed to fetch details for movie ID {movie_id}: {str(e)}")
+        return {
+            "poster_url": None,
+            "title": "Movie information unavailable",
+            "rating": "N/A",
+            "release_date": "N/A",
+            "overview": "No overview available"
+        }
 
 def recommend(movie):
     """
     Recommend movies similar to the selected movie.
-
-    :param movie: The selected movie title.
-    :return: A list of dictionaries with movie details.
     """
-    index = movies[movies['title'] == movie].index[0]
-    distances = sorted(list(enumerate(similarity[index])), reverse=True, key=lambda x: x[1])
-    
-    recommendations = []
-    for i in distances[1:6]:  # Top 5 recommendations
-        movie_id = movies.iloc[i[0]].movie_id
-        details = fetch_movie_details(movie_id)
-        recommendations.append(details)
-    
-    return recommendations
-
+    try:
+        index = movies[movies['title'] == movie].index[0]
+        distances = sorted(list(enumerate(similarity[index])), reverse=True, key=lambda x: x[1])
+        
+        recommendations = []
+        for i in distances[1:6]:  # Top 5 recommendations
+            movie_id = movies.iloc[i[0]].movie_id
+            details = fetch_movie_details(movie_id)
+            recommendations.append(details)
+        
+        return recommendations
+    except Exception as e:
+        st.error(f"Error generating recommendations: {str(e)}")
+        return []
 
 # Page configuration
 st.set_page_config(page_title="Movie Recommender", layout="wide")
 st.markdown(
     """
     <style>
-    body {
-        background-color: #f4f4f4;
-        font-family: Arial, sans-serif;
+    .movie-card {
+        background-color: #ffffff;
+        padding: 1rem;
+        border-radius: 10px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
     }
     </style>
     """,
-    unsafe_allow_html=True,
+    unsafe_allow_html=True
 )
 
 # Header
@@ -107,36 +112,30 @@ if movies is not None and similarity is not None:
     )
 
     # Show recommendations button
-    if st.button('Show Recommendation'):
-        if selected_movie:  # Ensure a movie is selected
+    if st.button('Show Recommendations'):
+        if selected_movie:
             with st.spinner('Fetching recommendations...'):
                 recommendations = recommend(selected_movie)
             
-            st.subheader("Recommended Movies:")
-            movie_cols = st.columns(len(recommendations))
-            for idx, col in enumerate(movie_cols):
-                with col:
-                    movie = recommendations[idx]
-                    st.image(movie["poster_url"], width=150, caption=movie["title"])
-                    st.write(f"⭐ Rating: {movie['rating']}")
-                    st.write(f"📅 Release: {movie['release_date']}")
+            if recommendations:
+                st.subheader("Recommended Movies:")
+                movie_cols = st.columns(len(recommendations))
+                
+                for idx, col in enumerate(movie_cols):
+                    with col:
+                        movie = recommendations[idx]
+                        with st.container():
+                            # Display poster if available, otherwise show placeholder
+                            if movie["poster_url"]:
+                                st.image(movie["poster_url"], width=150, caption=movie["title"])
+                            else:
+                                st.image("https://via.placeholder.com/150x225?text=No+Poster", width=150, caption=movie["title"])
+                            
+                            st.markdown(f"⭐ Rating: {movie['rating']}")
+                            st.markdown(f"📅 Release: {movie['release_date']}")
+                            with st.expander("Overview"):
+                                st.write(movie["overview"])
         else:
-            st.error("Please select a movie to get recommendations.")
+            st.warning("Please select a movie to get recommendations.")
 else:
     st.error("Failed to load movie data. Please try again later.")
-
-
-
-# # Show recommendations button
-# if st.button('Show Recommendation'):
-#     with st.spinner('Fetching recommendations...'):
-#         recommendations = recommend(selected_movie)
-    
-#     st.subheader("Recommended Movies:")
-#     movie_cols = st.columns(len(recommendations))
-#     for idx, col in enumerate(movie_cols):
-#         with col:
-#             movie = recommendations[idx]
-#             st.image(movie.get("poster_url", "https://via.placeholder.com/500x750"), width=150, caption=movie['title'])
-#             st.write(f"⭐ Rating: {movie['rating']}")
-#             st.write(f"📅 Release: {movie['release_date']}")
