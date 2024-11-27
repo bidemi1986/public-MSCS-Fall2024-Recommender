@@ -11,8 +11,13 @@ MOVIE_LIST_URL = "https://firebasestorage.googleapis.com/v0/b/sample-firebase-ai
 SIMILARITY_URL = "https://firebasestorage.googleapis.com/v0/b/sample-firebase-ai-app-3e813.firebasestorage.app/o/articles%2Fsimilarity.pkl?alt=media&token=5b832d2d-1f92-4ecf-a9b4-eadec60d94a8"
 
 # Load environment variables
-load_dotenv(dotenv_path=Path(__file__).resolve().parent.parent / '.env')
-IMDB_API_KEY = os.getenv("IMDB_API_KEY", "imdb-api-key")
+load_dotenv()
+TMDB_API_KEY = os.getenv("TMDB_API_KEY")
+
+# Check if API key is available
+if not TMDB_API_KEY:
+    st.error("TMDB API key not found. Please set up your API key in the .env file.")
+    st.stop()
 
 @st.cache_data
 def download_and_load_pickle(url):
@@ -21,7 +26,7 @@ def download_and_load_pickle(url):
     """
     try:
         response = requests.get(url, stream=True)
-        response.raise_for_status()  # Raise an exception for bad status codes
+        response.raise_for_status()
         return pickle.loads(response.content)
     except Exception as e:
         st.error(f"Failed to download or load file from {url}. Error: {str(e)}")
@@ -32,8 +37,12 @@ def fetch_movie_details(movie_id):
     Fetch movie details from TMDB API with better error handling.
     """
     try:
-        url = f"https://api.themoviedb.org/3/movie/{movie_id}?api_key={IMDB_API_KEY}&language=en-US"
-        response = requests.get(url)
+        headers = {
+            "Authorization": f"Bearer {TMDB_API_KEY}",
+            "accept": "application/json"
+        }
+        url = f"https://api.themoviedb.org/3/movie/{movie_id}?language=en-US"
+        response = requests.get(url, headers=headers)
         response.raise_for_status()
         data = response.json()
         
@@ -50,7 +59,7 @@ def fetch_movie_details(movie_id):
             "release_date": data.get('release_date', "N/A"),
             "overview": data.get('overview', "No overview available")
         }
-    except Exception as e:
+    except requests.exceptions.RequestException as e:
         st.warning(f"Failed to fetch details for movie ID {movie_id}: {str(e)}")
         return {
             "poster_url": None,
