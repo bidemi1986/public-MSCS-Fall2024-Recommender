@@ -3,6 +3,7 @@ streamlit
 python-dotenv
 requests
 pandas
-
+boto3
+botocore
 ### local packages -
 -e . 
