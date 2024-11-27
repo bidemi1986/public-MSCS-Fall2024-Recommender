@@ -13,7 +13,7 @@ SIMILARITY_URL = "https://firebasestorage.googleapis.com/v0/b/sample-firebase-ai
 # Load environment variables
 load_dotenv()
 TMDB_API_KEY = os.getenv("TMDB_API_KEY")
-
+ACCESS_TOKEN = os.getenv("ACCESS_TOKEN")
 # Check if API key is available
 if not TMDB_API_KEY:
     st.error("TMDB API key not found. Please set up your API key in the .env file.")
@@ -38,7 +38,7 @@ def fetch_movie_details(movie_id):
     """
     try:
         headers = {
-            "Authorization": f"Bearer {TMDB_API_KEY}",
+            "Authorization": f"Bearer {ACCESS_TOKEN}",
             "accept": "application/json"
         }
         url = f"https://api.themoviedb.org/3/movie/{movie_id}?language=en-US"
