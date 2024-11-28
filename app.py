@@ -6,6 +6,17 @@ import boto3
 from pathlib import Path
 from dotenv import load_dotenv
 from botocore.exceptions import ClientError
+import logging
+import time
+
+# Configure logging
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+# CloudWatch handler
+cloudwatch_handler = logging.StreamHandler()
+cloudwatch_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+logger.addHandler(cloudwatch_handler)
 
 # Load environment variables
 load_dotenv()
@@ -15,8 +26,23 @@ AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_BUCKET_NAME = os.getenv("AWS_BUCKET_NAME")
 
-print(f" AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_BUCKET_NAME => AWS_ACCESS_KEY: {AWS_ACCESS_KEY}, AWS_SECRET_KEY: {AWS_SECRET_KEY}, AWS_BUCKET_NAME: {AWS_BUCKET_NAME}")
-# Check if required credentials are available
+# Initialize CloudWatch client
+cloudwatch = boto3.client('cloudwatch')
+def log_metric(metric_name, value, unit='Count'):
+    """Log custom metric to CloudWatch"""
+    try:
+        cloudwatch.put_metric_data(
+            Namespace='MovieRecommender',
+            MetricData=[
+                {
+                    'MetricName': metric_name,
+                    'Value': value,
+                    'Unit': unit
+                }
+            ]
+        )
+    except Exception as e:
+        logger.error(f"Error logging metric {metric_name}: {str(e)}")
 if not TMDB_API_KEY:
     st.error("TMDB API key not found. Please set up your API key in the .env file.")
     st.stop()
@@ -174,3 +200,21 @@ if movies is not None and similarity is not None:
             st.warning("Please select a movie to get recommendations.")
 else:
     st.error("Failed to load movie data. Please try again later.")
+
+
+
+# Add performance monitoring
+def monitor_performance(func):
+    def wrapper(*args, **kwargs):
+        start_time = time.time()
+        result = func(*args, **kwargs)
+        duration = time.time() - start_time
+        
+        log_metric(f'{func.__name__}_duration', duration, 'Seconds')
+        return result
+    return wrapper
+
+@monitor_performance
+def fetch_movie_details(movie_id):
+    # Your existing fetch_movie_details code...
+    pass

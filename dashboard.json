@@ -1,0 +1,52 @@
+{
+    "widgets": [
+        {
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    ["MovieRecommender", "RecommendationRequestCount", { "stat": "Sum" }]
+                ],
+                "view": "timeSeries",
+                "region": "us-east-1",
+                "title": "Recommendation Requests",
+                "period": 300
+            }
+        },
+        {
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    ["MovieRecommender", "RecommendationResponseTime", { "stat": "Average" }]
+                ],
+                "view": "timeSeries",
+                "region": "us-east-1",
+                "title": "Response Time",
+                "period": 300
+            }
+        },
+        {
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    ["AWS/EC2", "CPUUtilization", { "stat": "Average" }]
+                ],
+                "view": "timeSeries",
+                "region": "us-east-1",
+                "title": "CPU Utilization",
+                "period": 300
+            }
+        },
+        {
+            "type": "metric",
+            "properties": {
+                "metrics": [
+                    ["MovieRecommender", "RecommendationErrors", { "stat": "Sum" }]
+                ],
+                "view": "timeSeries",
+                "region": "us-east-1",
+                "title": "Errors",
+                "period": 300
+            }
+        }
+    ]
+}
