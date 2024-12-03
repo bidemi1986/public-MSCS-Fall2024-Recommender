@@ -14,9 +14,9 @@ logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
 # CloudWatch handler
-cloudwatch_handler = logging.StreamHandler()
-cloudwatch_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
-logger.addHandler(cloudwatch_handler)
+# cloudwatch_handler = logging.StreamHandler()
+# cloudwatch_handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+# logger.addHandler(cloudwatch_handler)
 
 # Load environment variables
 load_dotenv()
@@ -26,30 +26,30 @@ AWS_ACCESS_KEY = os.getenv("AWS_ACCESS_KEY_ID")
 AWS_SECRET_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
 AWS_BUCKET_NAME = os.getenv("AWS_BUCKET_NAME")
 
-# Initialize CloudWatch client
-cloudwatch = boto3.client('cloudwatch')
-def log_metric(metric_name, value, unit='Count'):
-    """Log custom metric to CloudWatch"""
-    try:
-        cloudwatch.put_metric_data(
-            Namespace='MovieRecommender',
-            MetricData=[
-                {
-                    'MetricName': metric_name,
-                    'Value': value,
-                    'Unit': unit
-                }
-            ]
-        )
-    except Exception as e:
-        logger.error(f"Error logging metric {metric_name}: {str(e)}")
-if not TMDB_API_KEY:
-    st.error("TMDB API key not found. Please set up your API key in the .env file.")
-    st.stop()
+# # Initialize CloudWatch client
+# cloudwatch = boto3.client('cloudwatch')
+# def log_metric(metric_name, value, unit='Count'):
+#     """Log custom metric to CloudWatch"""
+#     try:
+#         cloudwatch.put_metric_data(
+#             Namespace='MovieRecommender',
+#             MetricData=[
+#                 {
+#                     'MetricName': metric_name,
+#                     'Value': value,
+#                     'Unit': unit
+#                 }
+#             ]
+#         )
+#     except Exception as e:
+#         logger.error(f"Error logging metric {metric_name}: {str(e)}")
+# if not TMDB_API_KEY:
+#     st.error("TMDB API key not found. Please set up your API key in the .env file.")
+#     st.stop()
 
-if not all([AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_BUCKET_NAME]):
-    st.error("AWS credentials not found. Please set up your AWS credentials in the .env file.")
-    st.stop()
+# if not all([AWS_ACCESS_KEY, AWS_SECRET_KEY, AWS_BUCKET_NAME]):
+#     st.error("AWS credentials not found. Please set up your AWS credentials in the .env file.")
+#     st.stop()
 
 # Initialize AWS S3 client
 s3_client = boto3.client(
